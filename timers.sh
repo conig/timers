@@ -2,7 +2,7 @@
 
 TIMER_LOG="$HOME/.timers"
 STOPWATCH_EMOJI="⏱️"
-CHECKMARK_EMOJI="🮱"
+CHECKMARK_EMOJI="✔"
 CLEANUP_AGE=60  # 60 seconds (1 minute)
 
 # Helper function to format seconds as HH:MM:SS.
