@@ -21,8 +21,8 @@ Usage: timers [-m "message"] [time] [-a for alarm] [-c to cancel timers] [-s to 
 | `-m "message"` | A message to associate with the timer or alarm. |
 | `[time]` | The duration for a timer (e.g., `5m`, `1h`, `30s`) or the specific time for an alarm (`HH:MM`). |
 | `-a` | Schedules an alarm instead of a countdown timer. |
-| `-c` | Cancels an existing timer or alarm. |
-| `-s` | Lists active timers and alarms. |
+| `-c` | Cancels an existing timer or alarm via a numbered list. |
+| `-s` | Display remaining timers in HH:MM:SS. |
 
 ### Examples
 #### Setting a Timer
@@ -39,9 +39,14 @@ Schedules an **alarm for 2:30 PM** with the message "Meeting".
 
 #### Listing Active Timers and Alarms
 ```bash
-timers -s
+timers
 ```
 Displays all active timers and alarms in a user-friendly format.
+
+### Show Active Timers in HH:MM:SS
+```bash
+timers -s
+```
 
 #### Cancelling a Timer
 ```bash
@@ -53,10 +58,10 @@ Prompts the user to select a timer or alarm to cancel.
 To display active timers and alarms in **i3blocks**, create a new block entry in your `~/.config/i3blocks/config`:
 ```ini
 [timers]
-command=timers -s
-interval=5
+command=timers
+interval=20
 ```
-This will refresh the display every 5 seconds, showing currently active timers in the i3bar.
+This will refresh the display every 20 seconds, showing currently active timers in the i3bar.
 
 ## Log File
 Timers and alarms are stored in `~/.timers`. The script periodically cleans up expired entries.
