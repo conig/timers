@@ -3,7 +3,7 @@
 TIMER_LOG="$HOME/.timers"
 STOPWATCH_EMOJI="⏱️"
 CHECKMARK_EMOJI="✔"
-CLEANUP_AGE=120  # In seconds
+CLEANUP_AGE=120  # in seconds
 
 # Helper function to format seconds as HH:MM:SS.
 format_seconds() {
@@ -26,43 +26,88 @@ format_remaining() {
         printf "%dm" $(( r / 60 ))
     elif (( r < 86400 )); then
         # Hours with one decimal place
-        local h=$(echo "scale=1; $r/3600" | bc)
+        local h
+        h=$(echo "scale=1; $r/3600" | bc)
         printf "%sh" "$h"
     elif (( r < 604800 )); then
         # Days with one decimal place
-        local d=$(echo "scale=1; $r/86400" | bc)
+        local d
+        d=$(echo "scale=1; $r/86400" | bc)
         printf "%sd" "$d"
     elif (( r < 31536000 )); then
         # Weeks with one decimal place
-        local w=$(echo "scale=1; $r/604800" | bc)
+        local w
+        w=$(echo "scale=1; $r/604800" | bc)
         printf "%sw" "$w"
     else
         # Years with one decimal place
-        local y=$(echo "scale=1; $r/31536000" | bc)
+        local y
+        y=$(echo "scale=1; $r/31536000" | bc)
         printf "%sy" "$y"
     fi
 }
 
-# Cleanup function to remove expired checkmark entries.
+# Parse strings like "1h15m" properly, returning total seconds.
+parse_time() {
+    local input="$1"
+    local total=0
+
+    # Loop over all occurrences of <number><unit>.
+    while [[ $input =~ ([0-9]*\.?[0-9]+)([hms]) ]]; do
+        local num="${BASH_REMATCH[1]}"
+        local unit="${BASH_REMATCH[2]}"
+
+        case "$unit" in
+            h) total=$(echo "$total + $num*3600" | bc) ;;
+            m) total=$(echo "$total + $num*60"   | bc) ;;
+            s) total=$(echo "$total + $num"      | bc) ;;
+        esac
+
+        input="${input#${BASH_REMATCH[0]}}"
+    done
+
+    # If leftover text remains, treat that as an error.
+    if [[ -n "$input" ]]; then
+        echo "Unparsed leftover in time string: '$input'" >&2
+        return 1
+    fi
+
+    # Convert total to integer (drop decimals).
+    echo "${total%.*}"
+}
+
+# Remove:
+#  - Checkmark entries older than CLEANUP_AGE.
+#  - Timer/Alarm entries whose times are in the past.
 cleanup_timers() {
     [ -f "$TIMER_LOG" ] || return
     local now
     now=$(date +%s)
+
     awk -v now="$now" -v cutoff="$CLEANUP_AGE" -v check="$CHECKMARK_EMOJI" '{
+        # Timer/Alarm lines: end_time type pid message...
+        # Checkmark lines:   timestamp checkmark message...
         if ($2 == check) {
+            # Checkmark line: keep only if not too old
             if ($1 + cutoff >= now) {
                 print
             }
+        } else if ($2 == "TIMER" || $2 == "ALARM") {
+            # Keep if still in the future
+            if ($1 >= now) {
+                print
+            }
         } else {
+            # Unrecognised line; keep it
             print
         }
     }' "$TIMER_LOG" > "${TIMER_LOG}.tmp"
     mv "${TIMER_LOG}.tmp" "$TIMER_LOG"
 }
 
-# Function to cancel timers.
+# Cancel timers or alarms by selecting from a list.
 cancel_timer() {
-    cleanup_timers  # Clean up before cancelling.
+    cleanup_timers
     if [[ ! -f "$TIMER_LOG" || ! -s "$TIMER_LOG" ]]; then
         echo "No active timers to cancel."
         return
@@ -70,30 +115,53 @@ cancel_timer() {
 
     echo "Select a timer to cancel:"
     local i=1
-    declare -A timer_map
-    while read -r end_time type msg_rest; do
-        echo "$i) $msg_rest"
-        timer_map[$i]="$msg_rest"
-        ((i++))
+    declare -A line_map
+
+    # Only let the user cancel lines with "TIMER" or "ALARM" as $2.
+    while IFS= read -r full_line; do
+        local type
+        type="$(echo "$full_line" | awk '{print $2}')"
+        if [[ "$type" == "TIMER" || "$type" == "ALARM" ]]; then
+            line_map[$i]="$full_line"
+            # Show the message portion (field 4 onward).
+            local msg
+            msg="$(echo "$full_line" | cut -d ' ' -f 4-)"
+            echo "$i) $msg"
+            ((i++))
+        fi
     done < "$TIMER_LOG"
+
+    if (( i == 1 )); then
+        echo "No active timers/alarms to cancel."
+        return
+    fi
 
     read -p "Enter number to cancel: " choice
 
-    if [[ -n "${timer_map[$choice]}" ]]; then
-        sed -i "\|${timer_map[$choice]}|d" "$TIMER_LOG"
-        echo "Cancelled timer: ${timer_map[$choice]}"
+    local selected_line="${line_map[$choice]}"
+    if [[ -n "$selected_line" ]]; then
+        # Parse out the PID (third field).
+        local pid
+        pid="$(echo "$selected_line" | awk '{print $3}')"
+        # Kill the background process if valid.
+        if [[ "$pid" =~ ^[0-9]+$ ]]; then
+            kill "$pid" 2>/dev/null
+        fi
+        # Remove from the log.
+        sed -i "\|^$selected_line\$|d" "$TIMER_LOG"
+        echo "Cancelled: $(echo "$selected_line" | cut -d ' ' -f 4-)"
     else
         echo "Invalid selection."
     fi
 }
 
-# Unified function for scheduling timers and alarms.
+# Schedules a timer or alarm.
 schedule_timer() {
     local mode="TIMER"
     local msg=""
-    local time=""
+    local time_spec=""
 
-    # Parse options for scheduling (–s is reserved for listing).
+    # Parse options (-m message, -a for alarm, -c to cancel).
     while getopts ":m:ac" opt; do
         case "$opt" in
             m) msg="$OPTARG" ;;
@@ -102,121 +170,133 @@ schedule_timer() {
                 cancel_timer
                 return 0
                 ;;
-            *) echo "Usage: timers [-m \"message\"] [time] [-a for alarm] [-c to cancel timers]"; return 1 ;;
+            *)
+                echo "Usage: timers [-m \"message\"] [time] [-a for alarm] [-c to cancel timers]"
+                return 1
+                ;;
         esac
     done
     shift $((OPTIND - 1))
-    time="$1"
+    time_spec="$1"
 
-    if [[ -z "$msg" || -z "$time" ]]; then
+    if [[ -z "$msg" || -z "$time_spec" ]]; then
         echo "Usage: timers [-m \"message\"] [time] [-a for alarm] [-c to cancel timers]"
         return 1
     fi
 
     if [[ "$mode" == "TIMER" ]]; then
-        # Convert time input by replacing m/h/s.
-        local numeric_time
-        numeric_time="$(echo "$time" | sed 's/m/*60/g; s/h/*3600/g; s/s//g')"
-
-        # Validate numeric_time (it should be a number after evaluation).
-        if ! [[ "$numeric_time" =~ ^[0-9\*\+\/\ \.\-]+$ ]]; then
-            echo "Invalid timer format: '$time'"
-            return 1
-        fi
-
-        # Evaluate the expression.
-        # Use bc to compute the numeric value.
+        # Convert e.g. "1h15m" into total seconds.
         local seconds
-        seconds=$(echo "$numeric_time" | bc 2>/dev/null)
-        if [[ -z "$seconds" || "$seconds" -eq 0 ]]; then
-            echo "Invalid timer duration: '$time'"
+        seconds="$(parse_time "$time_spec")" || {
+            echo "Invalid timer format: '$time_spec'"
+            return 1
+        }
+        if (( seconds <= 0 )); then
+            echo "Invalid timer duration: '$time_spec'"
             return 1
         fi
-
         local end_time=$(( $(date +%s) + seconds ))
-        echo "$end_time TIMER $msg" >> "$TIMER_LOG"
+
+        # Fork off a background process that sleeps, then updates the log.
         (
             sleep "$seconds"
-            sed -i "\|^$end_time TIMER $msg\$|d" "$TIMER_LOG"
+            sed -i "\|^$end_time TIMER $$ $msg\$|d" "$TIMER_LOG"
+            local checkmark_time
             checkmark_time=$(date +%s)
             echo "$checkmark_time $CHECKMARK_EMOJI $msg" >> "$TIMER_LOG"
             sleep 300
             sed -i "\|^$checkmark_time $CHECKMARK_EMOJI $msg\$|d" "$TIMER_LOG"
         ) &
+        local pid=$!
+        echo "$end_time TIMER $pid $msg" >> "$TIMER_LOG"
+
     else
-        # ALARM mode: validate that $time can be parsed.
-        if ! alarm_epoch=$(date -d "$time" +%s 2>/dev/null); then
-            echo "Invalid time format: '$time'"
+        # Alarm mode: parse user’s time as a future date/time.
+        local alarm_epoch
+        if ! alarm_epoch=$(date -d "$time_spec" +%s 2>/dev/null); then
+            echo "Invalid time format: '$time_spec'"
             return 1
         fi
-
         local now
         now=$(date +%s)
         local delay=$(( alarm_epoch - now ))
-        if (( delay > 0 )); then
-            echo "$alarm_epoch ALARM $msg" >> "$TIMER_LOG"
-            (
-                sleep "$delay"
-                sed -i "\|^$alarm_epoch ALARM $msg\$|d" "$TIMER_LOG"
-                checkmark_time=$(date +%s)
-                echo "$checkmark_time $CHECKMARK_EMOJI $msg" >> "$TIMER_LOG"
-                sleep 300
-                sed -i "\|^$checkmark_time $CHECKMARK_EMOJI $msg\$|d" "$TIMER_LOG"
-            ) &
-        else
+        if (( delay <= 0 )); then
             echo "Time is in the past!"
             return 1
         fi
+
+        (
+            sleep "$delay"
+            sed -i "\|^$alarm_epoch ALARM $$ $msg\$|d" "$TIMER_LOG"
+            local checkmark_time
+            checkmark_time=$(date +%s)
+            echo "$checkmark_time $CHECKMARK_EMOJI $msg" >> "$TIMER_LOG"
+            sleep 300
+            sed -i "\|^$checkmark_time $CHECKMARK_EMOJI $msg\$|d" "$TIMER_LOG"
+        ) &
+        local pid=$!
+        echo "$alarm_epoch ALARM $pid $msg" >> "$TIMER_LOG"
     fi
 }
 
-# Function to list active timers.
-# If seconds_mode is non-empty, display in HH:MM:SS; otherwise use the alternative display.
+# Lists active timers/alarms, omitting the raw end-time.
+# If seconds_mode is non-empty, use HH:MM:SS, else a higher-level display.
 timers() {
     local seconds_mode="$1"
-    cleanup_timers  # Run cleanup before listing timers.
-    if [[ -f "$TIMER_LOG" && -s "$TIMER_LOG" ]]; then
-        local results=()
-        local now
-        now=$(date +%s)
-        while read -r token type msg_rest; do
-            if [[ "$token" =~ ^[0-9]+$ && "$type" != "ALARM" && "$type" != "TIMER" ]]; then
-                # This is a checkmark entry with a timestamp.
-                results+=( "$msg_rest $CHECKMARK_EMOJI" )
-            elif [[ "$token" =~ ^[0-9]+$ ]]; then
-                local remaining=$(( token - now ))
-                if (( remaining > 0 )); then
-                    if [[ -n "$seconds_mode" ]]; then
-                        # Show full HH:MM:SS format.
-                        local formatted
-                        formatted=$(format_seconds "$remaining")
-                    else
-                        # Use the higher-level display (minutes is the smallest resolution).
-                        local formatted
-                        formatted=$(format_remaining "$remaining")
-                    fi
-                    results+=( "$STOPWATCH_EMOJI $msg_rest - $formatted" )
-                else
-                    results+=( "$msg_rest $CHECKMARK_EMOJI" )
-                fi
-            else
-                results+=( "$token $type $msg_rest" )
-            fi
-        done < "$TIMER_LOG"
-        IFS='|'
-        echo "${results[*]}"
-        unset IFS
-    else
+    cleanup_timers  # remove stale entries
+    if [[ ! -f "$TIMER_LOG" || ! -s "$TIMER_LOG" ]]; then
         echo ""
+        return
     fi
+
+    local now
+    now=$(date +%s)
+    while IFS= read -r line; do
+        # We'll parse line by fields: end/check time, type-or-checkmark, PID-or-message, ...
+        local first second
+        first="$(echo "$line" | awk '{print $1}')"
+        second="$(echo "$line" | awk '{print $2}')"
+
+        if [[ "$second" == "$CHECKMARK_EMOJI" ]]; then
+            # e.g. "1678000000 ✔ washing dishes"
+            # We don’t show the numeric time. Just show the message plus ✔
+            local msg
+            msg="$(echo "$line" | cut -d ' ' -f 3-)"
+            echo "$msg $CHECKMARK_EMOJI"
+
+        elif [[ "$second" == "TIMER" || "$second" == "ALARM" ]]; then
+            # e.g. "1678000000 TIMER 12345 washing dishes"
+            local end_time="$first"
+            local pid
+            pid="$(echo "$line" | awk '{print $3}')"
+            local msg
+            msg="$(echo "$line" | cut -d ' ' -f 4-)"
+            local remaining=$(( end_time - now ))
+            if (( remaining > 0 )); then
+                local formatted
+                if [[ -n "$seconds_mode" ]]; then
+                    formatted="$(format_seconds "$remaining")"
+                else
+                    formatted="$(format_remaining "$remaining")"
+                fi
+                echo "$STOPWATCH_EMOJI $msg - $formatted"
+            else
+                # If it's somehow still in the file but time is past, show it as done
+                echo "$msg $CHECKMARK_EMOJI"
+            fi
+
+        else
+            # Unrecognised line format; just echo it raw
+            echo "$line"
+        fi
+    done < "$TIMER_LOG"
 }
 
 # Main entry point.
-# If invoked with -s as the sole argument (or with -s followed by other listing flags), use seconds mode.
 if [[ $# -eq 0 ]]; then
     timers
 else
-    # If the first argument is -s and no scheduling time is provided, treat it as a request for a seconds‐resolution display.
+    # If first arg is -s and no more args, show HH:MM:SS mode.
     if [[ "$1" == "-s" && $# -eq 1 ]]; then
         timers "-s"
     else
