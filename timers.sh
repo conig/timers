@@ -3,7 +3,7 @@
 TIMER_LOG="$HOME/.timers"
 STOPWATCH_EMOJI="⏱️"
 CHECKMARK_EMOJI="✔"
-CLEANUP_AGE=120  # in seconds
+CLEANUP_AGE=300  # in seconds
 
 # Helper function to format seconds as HH:MM:SS.
 format_seconds() {
@@ -285,7 +285,7 @@ timers() {
                    else
                         formatted="$(format_remaining "$remaining")"
                    fi
-                   output_lines+=("$STOPWATCH_EMOJI $msg - $formatted")
+                   output_lines+=("$STOPWATCH_EMOJI $msg: $formatted")
               else
                    output_lines+=("$msg $CHECKMARK_EMOJI")
               fi
