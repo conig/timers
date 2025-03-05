@@ -239,66 +239,88 @@ schedule_timer() {
     fi
 }
 
-# Lists active timers/alarms, omitting the raw end-time.
-# If seconds_mode is non-empty, use HH:MM:SS, else a higher-level display.
+# Lists active timers/alarms.
+# By default, prints all entries in one line separated by " | ".
+# If –1 is passed, prints each entry on its own line.
+# If –s is passed, uses HH:MM:SS format for remaining time.
 timers() {
-    local seconds_mode="$1"
+    local flag="$1"
+    local use_seconds=0
+    local vertical=0
+    if [[ "$flag" == "-s" ]]; then
+         use_seconds=1
+    elif [[ "$flag" == "-1" ]]; then
+         vertical=1
+    fi
+
     cleanup_timers  # remove stale entries
     if [[ ! -f "$TIMER_LOG" || ! -s "$TIMER_LOG" ]]; then
-        echo ""
-        return
+         echo ""
+         return
     fi
 
     local now
     now=$(date +%s)
+    local output_lines=()
     while IFS= read -r line; do
-        # We'll parse line by fields: end/check time, type-or-checkmark, PID-or-message, ...
-        local first second
-        first="$(echo "$line" | awk '{print $1}')"
-        second="$(echo "$line" | awk '{print $2}')"
+         local first second
+         first="$(echo "$line" | awk '{print $1}')"
+         second="$(echo "$line" | awk '{print $2}')"
 
-        if [[ "$second" == "$CHECKMARK_EMOJI" ]]; then
-            # e.g. "1678000000 ✔ washing dishes"
-            # We don’t show the numeric time. Just show the message plus ✔
-            local msg
-            msg="$(echo "$line" | cut -d ' ' -f 3-)"
-            echo "$msg $CHECKMARK_EMOJI"
-
-        elif [[ "$second" == "TIMER" || "$second" == "ALARM" ]]; then
-            # e.g. "1678000000 TIMER 12345 washing dishes"
-            local end_time="$first"
-            local pid
-            pid="$(echo "$line" | awk '{print $3}')"
-            local msg
-            msg="$(echo "$line" | cut -d ' ' -f 4-)"
-            local remaining=$(( end_time - now ))
-            if (( remaining > 0 )); then
-                local formatted
-                if [[ -n "$seconds_mode" ]]; then
-                    formatted="$(format_seconds "$remaining")"
-                else
-                    formatted="$(format_remaining "$remaining")"
-                fi
-                echo "$STOPWATCH_EMOJI $msg - $formatted"
-            else
-                # If it's somehow still in the file but time is past, show it as done
-                echo "$msg $CHECKMARK_EMOJI"
-            fi
-
-        else
-            # Unrecognised line format; just echo it raw
-            echo "$line"
-        fi
+         if [[ "$second" == "$CHECKMARK_EMOJI" ]]; then
+              local msg
+              msg="$(echo "$line" | cut -d ' ' -f 3-)"
+              output_lines+=("$msg $CHECKMARK_EMOJI")
+         elif [[ "$second" == "TIMER" || "$second" == "ALARM" ]]; then
+              local end_time="$first"
+              local pid
+              pid="$(echo "$line" | awk '{print $3}')"
+              local msg
+              msg="$(echo "$line" | cut -d ' ' -f 4-)"
+              local remaining=$(( end_time - now ))
+              if (( remaining > 0 )); then
+                   local formatted
+                   if (( use_seconds == 1 )); then
+                        formatted="$(format_seconds "$remaining")"
+                   else
+                        formatted="$(format_remaining "$remaining")"
+                   fi
+                   output_lines+=("$STOPWATCH_EMOJI $msg - $formatted")
+              else
+                   output_lines+=("$msg $CHECKMARK_EMOJI")
+              fi
+         else
+              output_lines+=("$line")
+         fi
     done < "$TIMER_LOG"
+
+    if (( vertical == 1 )); then
+         # Vertical listing.
+         for entry in "${output_lines[@]}"; do
+              echo "$entry"
+         done
+    else
+         # Horizontal listing: manually join with " , ".
+         local joined=""
+         for entry in "${output_lines[@]}"; do
+              if [[ -z "$joined" ]]; then
+                   joined="$entry"
+              else
+                   joined="$joined, $entry"
+              fi
+         done
+         echo "$joined"
+    fi
 }
 
 # Main entry point.
 if [[ $# -eq 0 ]]; then
     timers
 else
-    # If first arg is -s and no more args, show HH:MM:SS mode.
     if [[ "$1" == "-s" && $# -eq 1 ]]; then
         timers "-s"
+    elif [[ "$1" == "-1" && $# -eq 1 ]]; then
+        timers "-1"
     else
         schedule_timer "$@"
     fi
