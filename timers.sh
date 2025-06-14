@@ -129,8 +129,10 @@ schedule_timer() {
         echo "$end TIMER $! $msg" >> "$TIMER_LOG"
 
     else  # ALARM
-        local epoch=$(alarm_to_epoch "$time_spec") || { echo "Bad date."; return 1; }
-        local now=$(date +%s) delay=$((epoch-now))
+        local epoch delay now
+        epoch=$(alarm_to_epoch "$time_spec") || { echo "Bad date."; return 1; }
+        now=$(date +%s)
+        delay=$((epoch-now))
         (( delay>0 )) || { echo "Time is past."; return 1; }
         (
             sleep "$delay"
