@@ -204,5 +204,4 @@ else
     schedule_timer "$@"
 fi
 
-# Show version in interactive shells for sanity-checking
-[[ -t 1 && ${TIMERS_NO_BANNER:-} != 1 ]] && echo "(timers $TIMERS_VERSION)" >&2
+# Version output disabled to keep display clean
