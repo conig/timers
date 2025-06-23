@@ -202,7 +202,8 @@ echo "\$@" > "$tmp/out"
 EOF
     chmod +x "$fakebin/editor"
     PATH="$fakebin:$PATH" EDITOR="$fakebin/editor" \
-        XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" "$script" --config
+        XDG_CACHE_HOME="$tmp/.cache" XDG_CONFIG_HOME= HOME="$tmp" \
+        "$script" --config
     grep -q "$tmp/.config/timers/config" "$tmp/out"
 }
 
