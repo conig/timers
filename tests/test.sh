@@ -59,4 +59,31 @@ test_pipe_delimiter() {
 
 run_test pipe_delimiter test_pipe_delimiter
 
+test_no_duplicate_checkmarks() {
+    tmp=$(mktemp -d)
+    fakebin="$tmp/fakebin"
+    mkdir -p "$fakebin"
+    cat <<'EOF' > "$fakebin/date"
+#!/usr/bin/env bash
+if [[ $1 == '+%s' ]]; then
+    echo 1000
+else
+    /usr/bin/date "$@"
+fi
+EOF
+    chmod +x "$fakebin/date"
+
+    mkdir -p "$tmp/.cache"
+    cat <<'EOF' > "$tmp/.cache/timers"
+1000 TIMER 123 test
+1000 ✔ test
+EOF
+
+    PATH="$fakebin:$PATH" XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" \
+        "$script" >"$tmp/out"
+    [[ $(grep -c 'test ✔' "$tmp/out") -eq 1 ]]
+}
+
+run_test no_duplicate_checkmarks test_no_duplicate_checkmarks
+
 echo "All tests passed."
