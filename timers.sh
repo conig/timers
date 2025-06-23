@@ -24,6 +24,7 @@ Options:
   -m msg        Set the timer or alarm message
   -c            Cancel a timer or alarm
   -n duration   Show timer when less than duration remains
+  -p            Play a sound when the timer finishes
   -s            Show remaining time in HH:MM:SS
   -1            Output one item per line
   -a, --all     Show all timers regardless of window
@@ -40,9 +41,11 @@ touch "$TIMER_LOG"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/timers"
 CONFIG_FILE="$CONFIG_DIR/config"
 
-# Defaults: notify on expiration only
+# Defaults: notify on expiration only, no sound
 NOTIFY_CREATE=0
 NOTIFY_EXPIRE=1
+PLAY_SOUND=0
+SOUND_FILE=""
 
 # Load config if present
 if [[ -f $CONFIG_FILE ]]; then
@@ -50,6 +53,8 @@ if [[ -f $CONFIG_FILE ]]; then
         case $key in
             notify_on_create) NOTIFY_CREATE=$val ;;
             notify_on_expire) NOTIFY_EXPIRE=$val ;;
+            sound_on_expire)  PLAY_SOUND=$val ;;
+            sound_file)       SOUND_FILE=$val ;;
         esac
     done < "$CONFIG_FILE"
 fi
@@ -57,7 +62,14 @@ fi
 # Open the config file in the user's editor
 open_config() {
     mkdir -p "$CONFIG_DIR"
-    touch "$CONFIG_FILE"
+    if [[ ! -s $CONFIG_FILE ]]; then
+        cat > "$CONFIG_FILE" <<'EOF'
+# notify_on_create=0
+# notify_on_expire=1
+# sound_on_expire=0
+# sound_file=/path/to/sound.oga
+EOF
+    fi
     local editor="${EDITOR:-${VISUAL:-vi}}"
     "$editor" "$CONFIG_FILE"
 }
@@ -69,6 +81,26 @@ notify() {
         notify-send "$title" "$body" >/dev/null 2>&1
     elif command -v makoctl >/dev/null 2>&1; then
         makoctl send -t "$title" -s "$body" >/dev/null 2>&1
+    fi
+}
+
+# Play a sound if a command is available
+play_sound() {
+    local file=$1
+    if [[ -n $file && -f $file ]]; then
+        if command -v paplay >/dev/null 2>&1; then
+            paplay "$file" >/dev/null 2>&1 &
+        elif command -v aplay >/dev/null 2>&1; then
+            aplay "$file" >/dev/null 2>&1 &
+        elif command -v afplay >/dev/null 2>&1; then
+            afplay "$file" >/dev/null 2>&1 &
+        elif command -v play >/dev/null 2>&1; then
+            play -q "$file" >/dev/null 2>&1 &
+        elif command -v mpg123 >/dev/null 2>&1; then
+            mpg123 -q "$file" >/dev/null 2>&1 &
+        fi
+    else
+        printf '\a'
     fi
 }
 
@@ -153,6 +185,9 @@ schedule_entry() {
         if (( NOTIFY_EXPIRE )); then
             notify "$msg" "$kind finished"
         fi
+        if (( PLAY_SOUND )); then
+            play_sound "$SOUND_FILE"
+        fi
         sleep "$CLEANUP_AGE"
         remove_log_line "$t $CHECKMARK_EMOJI $msg"
     ) &
@@ -199,12 +234,13 @@ cancel_timer() {
 schedule_timer() {
     touch "$TIMER_LOG"
     local mode msg="" time_spec="" window=0
-    while getopts ":m:cn:" opt; do
+    while getopts ":m:cn:p" opt; do
         case $opt in
             m) msg=$OPTARG ;;
             c) cancel_timer; return ;;
             n) window=$(parse_duration "$OPTARG" 2>/dev/null) || { echo "Bad window."; return 1; } ;;
-            *) echo "Usage: timers [-m msg] [msg] time [-c] [-n window]" ; return 1 ;;
+            p) PLAY_SOUND=1 ;;
+            *) echo "Usage: timers [-m msg] [msg] time [-c] [-n window] [-p]" ; return 1 ;;
         esac
     done
     shift $((OPTIND-1))
