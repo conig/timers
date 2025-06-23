@@ -10,6 +10,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Run tests
-        run: make test
-        shell: bash
+      - name: Install kcov
+        run: sudo apt-get update && sudo apt-get install -y kcov
+      - name: Run tests with coverage
+        run: |
+          mkdir -p coverage
+          kcov --include-path=timers.sh coverage ./tests/test.sh
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          directory: coverage
