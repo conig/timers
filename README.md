@@ -1,5 +1,7 @@
 # Timers: Command-Line Timers and Alarms
 
+[![Tests](https://github.com/conig/timers/actions/workflows/tests.yml/badge.svg)](https://github.com/conig/timers/actions/workflows/tests.yml)
+
 ## Overview
 **Timers** is a simple Bash script that allows users to set timers and alarms from the command line. The script prints plain text so it can be used with a variety of status bars or scripts, including **i3blocks**, **Waybar**, or any other tool that can run a command. Timers logs timers and alarms to a file and provides an easy way to list, cancel, and manage them.
 
