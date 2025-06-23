@@ -87,6 +87,22 @@ Add a custom module in your Waybar configuration:
 Timers and alarms are stored in `$XDG_CACHE_HOME/timers` (default `~/.cache/timers`).
 The script periodically cleans up expired entries.
 
+## Notifications
+If `notify-send` or `makoctl` is available, Timers can display desktop
+notifications. Configuration is read from
+`$XDG_CONFIG_HOME/timers/config` (default `~/.config/timers/config`). The
+script honours `$XDG_CONFIG_HOME` if set and falls back to `~/.config`
+otherwise. The file supports two optional settings:
+
+```
+notify_on_create=0
+notify_on_expire=1
+```
+
+Set each value to `1` to enable or `0` to disable the corresponding
+alert. By default creation alerts are disabled and expiration alerts
+are enabled.
+
 ## Error Handling
 - If an invalid time format is provided, the script returns an error instead of passing it to `date`.
 - If the provided time is in the past, the script notifies the user instead of scheduling an invalid alarm.

@@ -131,4 +131,65 @@ test_time_first_date() {
 
 run_test time_first_date test_time_first_date
 
+test_default_notifications() {
+    tmp=$(mktemp -d)
+    fakebin="$tmp/fakebin"
+    mkdir -p "$fakebin"
+    cat <<EOF > "$fakebin/notify-send"
+#!/usr/bin/env bash
+echo notify >> "$tmp/out"
+EOF
+    chmod +x "$fakebin/notify-send"
+    PATH="$fakebin:$PATH" XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" \
+        "$script" test 1s
+    sleep 2
+    [[ $(grep -c notify "$tmp/out" 2>/dev/null || true) -eq 1 ]]
+}
+
+run_test default_notifications test_default_notifications
+
+test_disable_notifications() {
+    tmp=$(mktemp -d)
+    fakebin="$tmp/fakebin"
+    mkdir -p "$fakebin"
+    cat <<EOF > "$fakebin/notify-send"
+#!/usr/bin/env bash
+echo notify >> "$tmp/out"
+EOF
+    chmod +x "$fakebin/notify-send"
+    mkdir -p "$tmp/.config/timers"
+    cat <<EOF > "$tmp/.config/timers/config"
+notify_on_create=1
+notify_on_expire=0
+EOF
+    PATH="$fakebin:$PATH" XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" \
+        "$script" test 1s
+    sleep 2
+    [[ $(grep -c notify "$tmp/out" 2>/dev/null || true) -eq 1 ]]
+}
+
+run_test disable_notifications test_disable_notifications
+
+test_xdg_config_home() {
+    tmp=$(mktemp -d)
+    fakebin="$tmp/fakebin"
+    mkdir -p "$fakebin"
+    cat <<EOF > "$fakebin/notify-send"
+#!/usr/bin/env bash
+echo notify >> "$tmp/out"
+EOF
+    chmod +x "$fakebin/notify-send"
+    mkdir -p "$tmp/conf/timers"
+    cat <<EOF > "$tmp/conf/timers/config"
+notify_on_create=1
+notify_on_expire=0
+EOF
+    PATH="$fakebin:$PATH" XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" \
+        XDG_CONFIG_HOME="$tmp/conf" "$script" test 1s
+    sleep 2
+    [[ $(grep -c notify "$tmp/out" 2>/dev/null || true) -eq 1 ]]
+}
+
+run_test xdg_config_home test_xdg_config_home
+
 echo "All tests passed."

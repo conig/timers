@@ -17,6 +17,34 @@ TIMERS_VERSION="v2025-05-19"
 mkdir -p "$(dirname "$TIMER_LOG")"
 touch "$TIMER_LOG"
 
+# Config ---------------------------------------------------------------
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/timers"
+CONFIG_FILE="$CONFIG_DIR/config"
+
+# Defaults: notify on expiration only
+NOTIFY_CREATE=0
+NOTIFY_EXPIRE=1
+
+# Load config if present
+if [[ -f $CONFIG_FILE ]]; then
+    while IFS='=' read -r key val; do
+        case $key in
+            notify_on_create) NOTIFY_CREATE=$val ;;
+            notify_on_expire) NOTIFY_EXPIRE=$val ;;
+        esac
+    done < "$CONFIG_FILE"
+fi
+
+# Send a desktop notification if possible
+notify() {
+    local title=$1 body=$2
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send "$title" "$body" >/dev/null 2>&1
+    elif command -v makoctl >/dev/null 2>&1; then
+        makoctl send -t "$title" -s "$body" >/dev/null 2>&1
+    fi
+}
+
 # --------------------------------------------------------------------
 # Helpers
 # --------------------------------------------------------------------
@@ -95,10 +123,16 @@ schedule_entry() {
         remove_log_line "$stamp $kind $$ $window $msg"
         local t=$(date +%s)
         echo "$t $CHECKMARK_EMOJI $msg" >> "$TIMER_LOG"
+        if (( NOTIFY_EXPIRE )); then
+            notify "$msg" "$kind finished"
+        fi
         sleep "$CLEANUP_AGE"
         remove_log_line "$t $CHECKMARK_EMOJI $msg"
     ) &
     echo "$stamp $kind $! $window $msg" >> "$TIMER_LOG"
+    if (( NOTIFY_CREATE )); then
+        notify "$msg" "$kind set"
+    fi
 }
 
 # --------------------------------------------------------------------
