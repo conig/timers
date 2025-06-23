@@ -40,7 +40,7 @@ format_remaining() {
 }
 
 # 1h20m10s → seconds
-parse_time() {
+parse_duration() {
     local s=0 input=$1
     while [[ $input =~ ([0-9]*\.?[0-9]+)([hms]) ]]; do
         num=${BASH_REMATCH[1]} unit=${BASH_REMATCH[2]}
@@ -84,6 +84,23 @@ remove_log_line() {
     mv "$tmpfile" "$TIMER_LOG"
 }
 
+# Schedule a timer or alarm that triggers at an absolute epoch time.
+# Arguments: stamp kind window message
+schedule_entry() {
+    local stamp=$1 kind=$2 window=$3 msg=$4
+    local delay=$((stamp-$(date +%s)))
+    (
+        touch "$TIMER_LOG"
+        sleep "$delay"
+        remove_log_line "$stamp $kind $$ $window $msg"
+        local t=$(date +%s)
+        echo "$t $CHECKMARK_EMOJI $msg" >> "$TIMER_LOG"
+        sleep "$CLEANUP_AGE"
+        remove_log_line "$t $CHECKMARK_EMOJI $msg"
+    ) &
+    echo "$stamp $kind $! $window $msg" >> "$TIMER_LOG"
+}
+
 # --------------------------------------------------------------------
 # Cancel menu
 # --------------------------------------------------------------------
@@ -125,7 +142,7 @@ schedule_timer() {
         case $opt in
             m) msg=$OPTARG ;;
             c) cancel_timer; return ;;
-            n) window=$(parse_time "$OPTARG" 2>/dev/null) || { echo "Bad window."; return 1; } ;;
+            n) window=$(parse_duration "$OPTARG" 2>/dev/null) || { echo "Bad window."; return 1; } ;;
             *) echo "Usage: timers [-m msg] [msg] time [-c] [-n window]" ; return 1 ;;
         esac
     done
@@ -140,7 +157,7 @@ schedule_timer() {
     [[ -z $msg || -z $time_spec ]] && { echo "Msg and time required."; return 1; }
 
     local secs parsed=0
-    secs=$(parse_time "$time_spec" 2>/dev/null) && parsed=1
+    secs=$(parse_duration "$time_spec" 2>/dev/null) && parsed=1
 
     if (( parsed )); then
         mode=TIMER
@@ -152,33 +169,14 @@ schedule_timer() {
         (( parsed )) || { echo "Could not parse '$time_spec'."; return 1; }
         (( secs>0 )) || { echo "Duration must be >0."; return 1; }
         local end=$(( $(date +%s)+secs ))
-        (
-            touch "$TIMER_LOG"
-            sleep "$secs"
-            remove_log_line "$end TIMER $$ $window $msg"
-            local t=$(date +%s)
-            echo "$t $CHECKMARK_EMOJI $msg" >> "$TIMER_LOG"
-            sleep "$CLEANUP_AGE"
-            remove_log_line "$t $CHECKMARK_EMOJI $msg"
-        ) &
-        echo "$end TIMER $! $window $msg" >> "$TIMER_LOG"
+        schedule_entry "$end" "TIMER" "$window" "$msg"
 
     else  # ALARM
-        local epoch delay now
+        local epoch delay
         epoch=$(alarm_to_epoch "$time_spec") || { echo "Bad date."; return 1; }
-        now=$(date +%s)
-        delay=$((epoch-now))
+        delay=$((epoch-$(date +%s)))
         (( delay>0 )) || { echo "Time is past."; return 1; }
-        (
-            touch "$TIMER_LOG"
-            sleep "$delay"
-            remove_log_line "$epoch ALARM $$ $window $msg"
-            local t=$(date +%s)
-            echo "$t $CHECKMARK_EMOJI $msg" >> "$TIMER_LOG"
-            sleep "$CLEANUP_AGE"
-            remove_log_line "$t $CHECKMARK_EMOJI $msg"
-        ) &
-        echo "$epoch ALARM $! $window $msg" >> "$TIMER_LOG"
+        schedule_entry "$epoch" "ALARM" "$window" "$msg"
     fi
 }
 
