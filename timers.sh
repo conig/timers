@@ -6,14 +6,15 @@
 
 set -euo pipefail
 
-TIMER_LOG="$HOME/.timers"
+TIMER_LOG="${XDG_CACHE_HOME:-$HOME/.cache}/timers"
 STOPWATCH_EMOJI="⏱️"
 CALENDAR_EMOJI="📅"
 CHECKMARK_EMOJI="✔"
 CLEANUP_AGE=300        # seconds
 TIMERS_VERSION="v2025-05-19"
 
-# Ensure log file exists early so background sed calls never fail
+# Ensure log file exists early so background grep calls never fail
+mkdir -p "$(dirname "$TIMER_LOG")"
 touch "$TIMER_LOG"
 
 # --------------------------------------------------------------------
@@ -74,6 +75,15 @@ cleanup_timers() {
     [[ -s $tmpfile ]] && mv "$tmpfile" "$TIMER_LOG" || rm -f "$tmpfile"
 }
 
+# Safely remove an exact log line regardless of special characters
+remove_log_line() {
+    local line="$1"
+    local tmpfile
+    tmpfile=$(mktemp "${TIMER_LOG}.XXXXXX")
+    grep -Fv -x -- "$line" "$TIMER_LOG" > "$tmpfile" || true
+    mv "$tmpfile" "$TIMER_LOG"
+}
+
 # --------------------------------------------------------------------
 # Cancel menu
 # --------------------------------------------------------------------
@@ -97,7 +107,7 @@ cancel_timer() {
     [[ ${map[$choice]+_} ]] || { echo "Invalid."; return; }
     pid=$(awk '{print $3}' <<<"${map[$choice]}")
     [[ $pid =~ ^[0-9]+$ ]] && kill "$pid" 2>/dev/null
-    sed -i "\|^${map[$choice]}$|d" "$TIMER_LOG"
+    remove_log_line "${map[$choice]}"
     echo "Cancelled."
 }
 
@@ -145,11 +155,11 @@ schedule_timer() {
         (
             touch "$TIMER_LOG"
             sleep "$secs"
-            sed -i "\|^$end TIMER $$ $msg$|d" "$TIMER_LOG"
+            remove_log_line "$end TIMER $$ $msg"
             local t=$(date +%s)
             echo "$t $CHECKMARK_EMOJI $msg" >> "$TIMER_LOG"
             sleep "$CLEANUP_AGE"
-            sed -i "\|^$t $CHECKMARK_EMOJI $msg$|d" "$TIMER_LOG"
+            remove_log_line "$t $CHECKMARK_EMOJI $msg"
         ) &
         echo "$end TIMER $! $msg" >> "$TIMER_LOG"
 
@@ -162,11 +172,11 @@ schedule_timer() {
         (
             touch "$TIMER_LOG"
             sleep "$delay"
-            sed -i "\|^$epoch ALARM $$ $msg$|d" "$TIMER_LOG"
+            remove_log_line "$epoch ALARM $$ $msg"
             local t=$(date +%s)
             echo "$t $CHECKMARK_EMOJI $msg" >> "$TIMER_LOG"
             sleep "$CLEANUP_AGE"
-            sed -i "\|^$t $CHECKMARK_EMOJI $msg$|d" "$TIMER_LOG"
+            remove_log_line "$t $CHECKMARK_EMOJI $msg"
         ) &
         echo "$epoch ALARM $! $msg" >> "$TIMER_LOG"
     fi

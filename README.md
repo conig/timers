@@ -64,7 +64,8 @@ interval=20
 This will refresh the display every 20 seconds, showing currently active timers in the i3bar.
 
 ## Log File
-Timers and alarms are stored in `~/.timers`. The script periodically cleans up expired entries.
+Timers and alarms are stored in `$XDG_CACHE_HOME/timers` (default `~/.cache/timers`).
+The script periodically cleans up expired entries.
 
 ## Error Handling
 - If an invalid time format is provided, the script returns an error instead of passing it to `date`.
