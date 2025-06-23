@@ -192,4 +192,21 @@ EOF
 
 run_test xdg_config_home test_xdg_config_home
 
+test_config_flag() {
+    tmp=$(mktemp -d)
+    fakebin="$tmp/fakebin"
+    mkdir -p "$fakebin"
+    cat <<EOF > "$fakebin/editor"
+#!/usr/bin/env bash
+echo "\$@" > "$tmp/out"
+EOF
+    chmod +x "$fakebin/editor"
+    PATH="$fakebin:$PATH" EDITOR="$fakebin/editor" \
+        XDG_CACHE_HOME="$tmp/.cache" XDG_CONFIG_HOME= HOME="$tmp" \
+        "$script" --config
+    grep -q "$tmp/.config/timers/config" "$tmp/out"
+}
+
+run_test config_flag test_config_flag
+
 echo "All tests passed."

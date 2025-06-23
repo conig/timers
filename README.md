@@ -12,7 +12,7 @@
 
 ## Usage
 ```
-Usage: timers [-m "message"] [message] [time] [-c to cancel timers] [-s to list timers] [-n duration] [--all]
+Usage: timers [-m "message"] [message] [time] [-c to cancel timers] [-s to list timers] [-n duration] [--all] [--config]
 ```
 
 ### Arguments
@@ -24,6 +24,7 @@ Usage: timers [-m "message"] [message] [time] [-c to cancel timers] [-s to list 
 | `-s` | Display remaining timers in HH:MM:SS. |
 | `-n <duration>` | Only show the timer when less than this duration remains. |
 | `--all` | List all timers regardless of their show window. |
+| `--config` | Open the configuration file in the default editor. |
 
 ### Examples
 #### Setting a Timer
@@ -102,6 +103,7 @@ notify_on_expire=1
 Set each value to `1` to enable or `0` to disable the corresponding
 alert. By default creation alerts are disabled and expiration alerts
 are enabled.
+Use `timers --config` to create or edit this file in your preferred editor.
 
 ## Error Handling
 - If an invalid time format is provided, the script returns an error instead of passing it to `date`.
