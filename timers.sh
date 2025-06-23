@@ -153,7 +153,7 @@ schedule_timer() {
         shift
     fi
 
-    time_spec=$1
+    time_spec="$*"
     [[ -z $msg || -z $time_spec ]] && { echo "Msg and time required."; return 1; }
 
     local secs parsed=0
@@ -175,6 +175,11 @@ schedule_timer() {
         local epoch delay
         epoch=$(alarm_to_epoch "$time_spec") || { echo "Bad date."; return 1; }
         delay=$((epoch-$(date +%s)))
+        if (( delay<=0 )) && [[ $time_spec =~ ^[0-9]{1,2}:[0-9]{2}$ ]]; then
+            echo "Warning: time has passed today; scheduling for tomorrow." >&2
+            epoch=$((epoch+86400))
+            delay=$((epoch-$(date +%s)))
+        fi
         (( delay>0 )) || { echo "Time is past."; return 1; }
         schedule_entry "$epoch" "ALARM" "$window" "$msg"
     fi
