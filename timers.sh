@@ -106,21 +106,34 @@ cancel_timer() {
 # --------------------------------------------------------------------
 schedule_timer() {
     touch "$TIMER_LOG"
-    local mode=TIMER msg="" time_spec=""
+    local forced="" mode msg="" time_spec=""
     while getopts ":m:ac" opt; do
         case $opt in
             m) msg=$OPTARG ;;
-            a) mode=ALARM ;;
+            a) forced=ALARM ;;
             c) cancel_timer; return ;;
-            *) echo "Usage: timers [-m msg] duration|date [-a] [-c]" ; return 1 ;;
+            *) echo "Usage: timers [-m msg] time [-a] [-c]" ; return 1 ;;
         esac
     done
     shift $((OPTIND-1))
     time_spec=$1
     [[ -z $msg || -z $time_spec ]] && { echo "Msg and time required."; return 1; }
 
+    local secs parsed=0
+    secs=$(parse_time "$time_spec" 2>/dev/null) && parsed=1
+
+    if [[ $forced == ALARM ]]; then
+        mode=ALARM
+    else
+        if (( parsed )); then
+            mode=TIMER
+        else
+            mode=ALARM
+        fi
+    fi
+
     if [[ $mode == TIMER ]]; then
-        local secs=$(parse_time "$time_spec") || return
+        (( parsed )) || { echo "Could not parse '$time_spec'."; return 1; }
         (( secs>0 )) || { echo "Duration must be >0."; return 1; }
         local end=$(( $(date +%s)+secs ))
         (
