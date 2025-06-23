@@ -110,4 +110,25 @@ test_auto_alarm() {
 
 run_test auto_alarm test_auto_alarm
 
+test_alarm_rollover() {
+    tmp=$(mktemp -d)
+    target=$(date -d '1 minute ago' '+%H:%M')
+    XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" "$script" test "$target" >"$tmp/out" 2>&1
+    line=$(cat "$tmp/.cache/timers")
+    grep -q "ALARM" "$tmp/.cache/timers"
+    grep -q "Warning" "$tmp/out"
+}
+
+run_test alarm_rollover test_alarm_rollover
+
+test_time_first_date() {
+    tmp=$(mktemp -d)
+    t=$(date -d '1 minute' '+%H:%M')
+    d=$(date -d 'tomorrow' '+%Y-%m-%d')
+    XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" "$script" test $t $d
+    grep -q "ALARM" "$tmp/.cache/timers"
+}
+
+run_test time_first_date test_time_first_date
+
 echo "All tests passed."
