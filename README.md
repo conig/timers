@@ -12,7 +12,7 @@
 
 ## Usage
 ```
-Usage: timers [-m "message"] [message] [time] [-c to cancel timers] [-s to list timers] [-n duration] [--all] [--config]
+Usage: timers [-m "message"] [message] [time] [-c to cancel timers] [-s to list timers] [-n duration] [-a|--all] [--config] [-h]
 ```
 
 ### Arguments
@@ -23,8 +23,9 @@ Usage: timers [-m "message"] [message] [time] [-c to cancel timers] [-s to list 
 | `-c` | Cancels an existing timer or alarm via a numbered list. |
 | `-s` | Display remaining timers in HH:MM:SS. |
 | `-n <duration>` | Only show the timer when less than this duration remains. |
-| `--all` | List all timers regardless of their show window. |
+| `-a`, `--all` | List all timers regardless of their show window. |
 | `--config` | Open the configuration file in the default editor. |
+| `-h`, `--help` | Show help information. |
 
 ### Examples
 #### Setting a Timer

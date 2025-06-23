@@ -13,6 +13,25 @@ CHECKMARK_EMOJI="✔"
 CLEANUP_AGE=300        # seconds
 TIMERS_VERSION="v2025-05-19"
 
+# Display usage information
+print_help() {
+    cat <<'EOF'
+Usage: timers [-m "msg"] [msg] time [-c] [-n window]
+       timers [-s] [-1] [-a|--all]
+       timers [--config]
+
+Options:
+  -m msg        Set the timer or alarm message
+  -c            Cancel a timer or alarm
+  -n duration   Show timer when less than duration remains
+  -s            Show remaining time in HH:MM:SS
+  -1            Output one item per line
+  -a, --all     Show all timers regardless of window
+  --config      Edit the configuration file
+  -h, --help    Show this help message
+EOF
+}
+
 # Ensure log file exists early so background grep calls never fail
 mkdir -p "$(dirname "$TIMER_LOG")"
 touch "$TIMER_LOG"
@@ -237,7 +256,7 @@ list_timers() {
         case $arg in
             -s) use_secs=1 ;;
             -1) vertical=1 ;;
-            --all) show_all=1 ;;
+            -a|--all) show_all=1 ;;
         esac
     done
 
@@ -299,6 +318,15 @@ list_timers() {
 # --------------------------------------------------------------------
 # Entry
 # --------------------------------------------------------------------
+for arg in "$@"; do
+    case $arg in
+        -h|--help)
+            print_help
+            exit 0
+            ;;
+    esac
+done
+
 if [[ $# -eq 0 ]]; then
     list_timers
 elif [[ $# -eq 1 && $1 == --config ]]; then
@@ -307,7 +335,7 @@ else
     only_flags=1
     for arg in "$@"; do
         case $arg in
-            -s|-1|--all) ;;
+            -s|-1|-a|--all) ;;
             *) only_flags=0; break ;;
         esac
     done
