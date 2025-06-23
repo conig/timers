@@ -12,7 +12,7 @@
 
 ## Usage
 ```
-Usage: timers [-m "message"] [message] [time] [-c to cancel timers] [-s to list timers]
+Usage: timers [-m "message"] [message] [time] [-c to cancel timers] [-s to list timers] [-n duration] [--all]
 ```
 
 ### Arguments
@@ -20,9 +20,10 @@ Usage: timers [-m "message"] [message] [time] [-c to cancel timers] [-s to list 
 |--------|-------------|
 | `-m "message"` | A message to associate with the timer or alarm. |
 | `[time]` | The duration for a timer (e.g., `5m`, `1h`, `30s`) or the specific time for an alarm (`HH:MM`). |
-| `-a` | (Optional) Force treating the input as an alarm. Normally the script detects whether the time is a countdown or clock time. |
 | `-c` | Cancels an existing timer or alarm via a numbered list. |
 | `-s` | Display remaining timers in HH:MM:SS. |
+| `-n <duration>` | Only show the timer when less than this duration remains. |
+| `--all` | List all timers regardless of their show window. |
 
 ### Examples
 #### Setting a Timer
@@ -37,11 +38,18 @@ timers "Meeting" 14:30
 ```
 Schedules an **alarm for 2:30 PM** with the message "Meeting".
 
+#### Timer with a Show Window
+```bash
+timers "pick up Harry" 16:00 -n 30m
+```
+The timer will only appear in the list 30 minutes before 4:00 PM.
+
 #### Listing Active Timers and Alarms
 ```bash
 timers
 ```
-Displays all active timers and alarms in a user-friendly format.
+Displays active timers and alarms in a user-friendly format.
+Use `--all` to show every timer regardless of its window.
 When more than one timer is active, they are separated by `|`.
 
 ### Show Active Timers in HH:MM:SS
