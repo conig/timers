@@ -13,6 +13,9 @@ CHECKMARK_EMOJI="✔"
 CLEANUP_AGE=300        # seconds
 TIMERS_VERSION="v2025-05-19"
 
+# Ensure log file exists early so background sed calls never fail
+touch "$TIMER_LOG"
+
 # --------------------------------------------------------------------
 # Helpers
 # --------------------------------------------------------------------
@@ -75,6 +78,7 @@ cleanup_timers() {
 # Cancel menu
 # --------------------------------------------------------------------
 cancel_timer() {
+    touch "$TIMER_LOG"
     cleanup_timers
     [[ ! -s $TIMER_LOG ]] && { echo "No active timers."; return; }
 
@@ -101,6 +105,7 @@ cancel_timer() {
 # Schedule timer/alarm
 # --------------------------------------------------------------------
 schedule_timer() {
+    touch "$TIMER_LOG"
     local mode=TIMER msg="" time_spec=""
     while getopts ":m:ac" opt; do
         case $opt in
@@ -119,6 +124,7 @@ schedule_timer() {
         (( secs>0 )) || { echo "Duration must be >0."; return 1; }
         local end=$(( $(date +%s)+secs ))
         (
+            touch "$TIMER_LOG"
             sleep "$secs"
             sed -i "\|^$end TIMER $$ $msg$|d" "$TIMER_LOG"
             local t=$(date +%s)
@@ -135,6 +141,7 @@ schedule_timer() {
         delay=$((epoch-now))
         (( delay>0 )) || { echo "Time is past."; return 1; }
         (
+            touch "$TIMER_LOG"
             sleep "$delay"
             sed -i "\|^$epoch ALARM $$ $msg$|d" "$TIMER_LOG"
             local t=$(date +%s)
@@ -150,6 +157,7 @@ schedule_timer() {
 # Display
 # --------------------------------------------------------------------
 list_timers() {
+    touch "$TIMER_LOG"
     local flag=${1:-} use_secs=0 vertical=0
     [[ $flag == -s ]] && use_secs=1
     [[ $flag == -1 ]] && vertical=1
