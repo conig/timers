@@ -69,7 +69,7 @@ cleanup_timers() {
     tmpfile=$(mktemp "${TIMER_LOG}.XXXXXX")
     awk -v now="$now" -v age="$CLEANUP_AGE" -v ok="$CHECKMARK_EMOJI" '
         ($2==ok)                   { if ($1+age >= now) print; next }
-        ($2=="TIMER"||$2=="ALARM"){ if ($1     >= now) print; next }
+        ($2=="TIMER"||$2=="ALARM"){ if ($1     >  now) print; next }
         { print }
     ' "$TIMER_LOG" > "$tmpfile"
     [[ -s $tmpfile ]] && mv "$tmpfile" "$TIMER_LOG" || rm -f "$tmpfile"
