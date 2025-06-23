@@ -1,13 +1,13 @@
-# Timers: Command-Line Timers and Alarms for i3blocks
+# Timers: Command-Line Timers and Alarms
 
 ## Overview
-**Timers** is a simple Bash script that allows users to set timers and alarms from the command line. It is designed to be compatible with **i3blocks**, making it easy to integrate with the i3 window manager for visual notifications. The script logs timers and alarms to a file and provides an easy way to list, cancel, and manage them.
+**Timers** is a simple Bash script that allows users to set timers and alarms from the command line. The script prints plain text so it can be used with a variety of status bars or scripts, including **i3blocks**, **Waybar**, or any other tool that can run a command. Timers logs timers and alarms to a file and provides an easy way to list, cancel, and manage them.
 
 ## Features
 - **Command-line timers**: Set countdown timers (e.g., "5m" for 5 minutes) that automatically remove themselves upon completion.
 - **Alarms**: Schedule an alarm for a specific time (e.g., "17:30").
 - **Checkmark notifications**: Once a timer or alarm completes, it is marked with a checkmark (`🮱`) in the logs.
-- **i3blocks compatibility**: Easily integrate with i3blocks to display active timers and alarms in the i3bar.
+- **Status bar integration**: Output can be piped into i3blocks, Waybar, or any bar that runs shell commands.
 - **Graceful error handling**: Prevents invalid inputs from being passed to `date`.
 
 ## Usage
@@ -55,14 +55,25 @@ timers -c
 ```
 Prompts the user to select a timer or alarm to cancel.
 
-## i3blocks Integration
-To display active timers and alarms in **i3blocks**, create a new block entry in your `~/.config/i3blocks/config`:
+## Status Bar Integration
+Timers outputs plain text, making it easy to embed in any bar that can execute a command.
+
+### i3blocks
+Add a block to `~/.config/i3blocks/config`:
 ```ini
 [timers]
 command=timers
 interval=20
 ```
-This will refresh the display every 20 seconds, showing currently active timers in the i3bar.
+
+### Waybar
+Add a custom module in your Waybar configuration:
+```json
+"custom/timers": {
+    "exec": "timers",
+    "interval": 20
+}
+```
 
 ## Log File
 Timers and alarms are stored in `$XDG_CACHE_HOME/timers` (default `~/.cache/timers`).
