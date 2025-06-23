@@ -11,10 +11,11 @@
 - **Checkmark notifications**: Once a timer or alarm completes, it is marked with a checkmark (`🮱`) in the logs.
 - **Status bar integration**: Output can be piped into i3blocks, Waybar, or any bar that runs shell commands.
 - **Graceful error handling**: Prevents invalid inputs from being passed to `date`.
+- **Optional sound alerts**: Timers can play a sound when they finish.
 
 ## Usage
 ```
-Usage: timers [-m "message"] [message] [time] [-c to cancel timers] [-s to list timers] [-n duration] [-a|--all] [--config] [-h]
+Usage: timers [-m "message"] [message] [time] [-c to cancel timers] [-s to list timers] [-n duration] [-p] [-a|--all] [--config] [-h]
 ```
 
 ### Arguments
@@ -25,6 +26,7 @@ Usage: timers [-m "message"] [message] [time] [-c to cancel timers] [-s to list 
 | `-c` | Cancels an existing timer or alarm via a numbered list. |
 | `-s` | Display remaining timers in HH:MM:SS. |
 | `-n <duration>` | Only show the timer when less than this duration remains. |
+| `-p` | Play a sound when the timer finishes. |
 | `-a`, `--all` | List all timers regardless of their show window. |
 | `--config` | Open the configuration file in the default editor. |
 | `-h`, `--help` | Show help information. |
@@ -47,6 +49,12 @@ Schedules an **alarm for 2:30 PM** with the message "Meeting".
 timers "pick up Harry" 16:00 -n 30m
 ```
 The timer will only appear in the list 30 minutes before 4:00 PM.
+
+#### Timer with Sound
+```bash
+timers -p "Tea" 3m
+```
+Plays a sound when the timer completes (see configuration for defaults).
 
 #### Listing Active Timers and Alarms
 ```bash
@@ -96,16 +104,20 @@ If `notify-send` or `makoctl` is available, Timers can display desktop
 notifications. Configuration is read from
 `$XDG_CONFIG_HOME/timers/config` (default `~/.config/timers/config`). The
 script honours `$XDG_CONFIG_HOME` if set and falls back to `~/.config`
-otherwise. The file supports two optional settings:
+otherwise. The file supports these optional settings:
 
 ```
 notify_on_create=0
 notify_on_expire=1
+# sound_on_expire=0
+# sound_file=/path/to/sound.oga
 ```
 
 Set each value to `1` to enable or `0` to disable the corresponding
 alert. By default creation alerts are disabled and expiration alerts
-are enabled.
+are enabled. When `sound_on_expire` is set, a sound is played on
+completion using `sound_file` if provided (otherwise the terminal bell
+is used).
 Use `timers --config` to create or edit this file in your preferred editor.
 
 ## Error Handling
