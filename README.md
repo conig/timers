@@ -42,6 +42,7 @@ Schedules an **alarm for 2:30 PM** with the message "Meeting".
 timers
 ```
 Displays all active timers and alarms in a user-friendly format.
+When more than one timer is active, they are separated by `|`.
 
 ### Show Active Timers in HH:MM:SS
 ```bash
