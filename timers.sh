@@ -35,6 +35,14 @@ if [[ -f $CONFIG_FILE ]]; then
     done < "$CONFIG_FILE"
 fi
 
+# Open the config file in the user's editor
+open_config() {
+    mkdir -p "$CONFIG_DIR"
+    touch "$CONFIG_FILE"
+    local editor="${EDITOR:-${VISUAL:-vi}}"
+    "$editor" "$CONFIG_FILE"
+}
+
 # Send a desktop notification if possible
 notify() {
     local title=$1 body=$2
@@ -293,6 +301,8 @@ list_timers() {
 # --------------------------------------------------------------------
 if [[ $# -eq 0 ]]; then
     list_timers
+elif [[ $# -eq 1 && $1 == --config ]]; then
+    open_config
 else
     only_flags=1
     for arg in "$@"; do
