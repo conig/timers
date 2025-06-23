@@ -49,4 +49,14 @@ run_test explicit_message test_explicit_message
 run_test missing_args test_missing_args
 run_test special_chars test_special_chars
 
+test_pipe_delimiter() {
+    tmp=$(mktemp -d)
+    XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" "$script" foo 2s
+    XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" "$script" bar 2s
+    out=$(XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" "$script" -s)
+    [[ $out == *" | "* ]]
+}
+
+run_test pipe_delimiter test_pipe_delimiter
+
 echo "All tests passed."

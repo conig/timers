@@ -223,8 +223,16 @@ list_timers() {
         fi
     done < "$TIMER_LOG"
 
-    if (( vertical )); then printf '%s\n' "${out[@]}"; else
-        local IFS=", "; echo "${out[*]}"
+    if (( vertical )); then
+        printf '%s\n' "${out[@]}"
+    else
+        if [[ ${#out[@]} -gt 0 ]]; then
+            printf '%s' "${out[0]}"
+            for item in "${out[@]:1}"; do
+                printf ' | %s' "$item"
+            done
+            echo
+        fi
     fi
 }
 
