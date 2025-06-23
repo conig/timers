@@ -44,14 +44,14 @@ parse_time() {
     while [[ $input =~ ([0-9]*\.?[0-9]+)([hms]) ]]; do
         num=${BASH_REMATCH[1]} unit=${BASH_REMATCH[2]}
         case $unit in
-            h) s=$(bc -l <<<"$s+$num*3600") ;;
-            m) s=$(bc -l <<<"$s+$num*60")  ;;
-            s) s=$(bc -l <<<"$s+$num")     ;;
+            h) s=$(awk -v s="$s" -v n="$num" 'BEGIN{print s+n*3600}') ;;
+            m) s=$(awk -v s="$s" -v n="$num" 'BEGIN{print s+n*60}')  ;;
+            s) s=$(awk -v s="$s" -v n="$num" 'BEGIN{print s+n}')     ;;
         esac
         input=${input#${BASH_REMATCH[0]}}
     done
     [[ -n $input ]] && { echo "Could not parse '$input'." >&2; return 1; }
-    echo "${s%.*}"
+    printf '%d' "${s%.*}"
 }
 
 # “YYYY-MM-DD” or “YYYY-MM-DD HH:MM” → epoch
@@ -112,10 +112,16 @@ schedule_timer() {
             m) msg=$OPTARG ;;
             a) forced=ALARM ;;
             c) cancel_timer; return ;;
-            *) echo "Usage: timers [-m msg] time [-a] [-c]" ; return 1 ;;
+            *) echo "Usage: timers [-m msg] [msg] time [-a] [-c]" ; return 1 ;;
         esac
     done
     shift $((OPTIND-1))
+
+    if [[ -z $msg && $# -ge 2 ]]; then
+        msg=$1
+        shift
+    fi
+
     time_spec=$1
     [[ -z $msg || -z $time_spec ]] && { echo "Msg and time required."; return 1; }
 
