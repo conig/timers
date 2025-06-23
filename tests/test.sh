@@ -93,6 +93,8 @@ test_show_window_and_all() {
     [[ -z $out ]]
     out=$(XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" "$script" --all)
     [[ $out == *test* ]]
+    out=$(XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" "$script" -a)
+    [[ $out == *test* ]]
     sleep 3
     out=$(XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" "$script")
     [[ $out == *test* ]]
@@ -208,5 +210,13 @@ EOF
 }
 
 run_test config_flag test_config_flag
+
+test_help_flag() {
+    tmp=$(mktemp -d)
+    XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" "$script" -h >"$tmp/out"
+    grep -q "Usage" "$tmp/out"
+}
+
+run_test help_flag test_help_flag
 
 echo "All tests passed."
