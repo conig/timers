@@ -12,7 +12,7 @@
 
 ## Usage
 ```
-Usage: timers [-m "message"] [time] [-c to cancel timers] [-s to list timers]
+Usage: timers [-m "message"] [message] [time] [-c to cancel timers] [-s to list timers]
 ```
 
 ### Arguments
@@ -27,13 +27,13 @@ Usage: timers [-m "message"] [time] [-c to cancel timers] [-s to list timers]
 ### Examples
 #### Setting a Timer
 ```bash
-timers -m "Break time" 10m
+timers "Break time" 10m
 ```
 Starts a **10-minute timer** with the message "Break time".
 
 #### Setting an Alarm
 ```bash
-timers -m "Meeting" 14:30
+timers "Meeting" 14:30
 ```
 Schedules an **alarm for 2:30 PM** with the message "Meeting".
 
@@ -77,3 +77,15 @@ Clone the repo and run:
 ```bash
 make install
 ```
+
+## Running Tests
+
+Run the shell test suite locally with:
+
+```bash
+make test
+```
+
+These tests are also executed automatically on GitHub via
+[GitHub Actions](https://docs.github.com/actions) for every push
+and pull request.
