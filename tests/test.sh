@@ -86,4 +86,28 @@ EOF
 
 run_test no_duplicate_checkmarks test_no_duplicate_checkmarks
 
+test_show_window_and_all() {
+    tmp=$(mktemp -d)
+    XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" "$script" -n 2s test 4s
+    out=$(XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" "$script")
+    [[ -z $out ]]
+    out=$(XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" "$script" --all)
+    [[ $out == *test* ]]
+    sleep 3
+    out=$(XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" "$script")
+    [[ $out == *test* ]]
+}
+
+run_test show_window_and_all test_show_window_and_all
+
+test_auto_alarm() {
+    tmp=$(mktemp -d)
+    target=$(date -d '1 minute' '+%H:%M')
+    XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" "$script" test "$target"
+    line=$(cat "$tmp/.cache/timers")
+    [[ $line == *"ALARM"* ]]
+}
+
+run_test auto_alarm test_auto_alarm
+
 echo "All tests passed."

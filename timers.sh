@@ -98,7 +98,11 @@ cancel_timer() {
     while IFS= read -r line; do
         [[ $line =~ (TIMER|ALARM) ]] || continue
         map[$i]="$line"
-        echo "$i) $(cut -d' ' -f4- <<<"$line")"
+        if (( $(awk '{print NF}' <<<"$line") >= 5 )); then
+            echo "$i) $(cut -d' ' -f5- <<<"$line")"
+        else
+            echo "$i) $(cut -d' ' -f4- <<<"$line")"
+        fi
         ((i++))
     done < "$TIMER_LOG"
 
@@ -116,13 +120,13 @@ cancel_timer() {
 # --------------------------------------------------------------------
 schedule_timer() {
     touch "$TIMER_LOG"
-    local forced="" mode msg="" time_spec=""
-    while getopts ":m:ac" opt; do
+    local mode msg="" time_spec="" window=0
+    while getopts ":m:cn:" opt; do
         case $opt in
             m) msg=$OPTARG ;;
-            a) forced=ALARM ;;
             c) cancel_timer; return ;;
-            *) echo "Usage: timers [-m msg] [msg] time [-a] [-c]" ; return 1 ;;
+            n) window=$(parse_time "$OPTARG" 2>/dev/null) || { echo "Bad window."; return 1; } ;;
+            *) echo "Usage: timers [-m msg] [msg] time [-c] [-n window]" ; return 1 ;;
         esac
     done
     shift $((OPTIND-1))
@@ -138,14 +142,10 @@ schedule_timer() {
     local secs parsed=0
     secs=$(parse_time "$time_spec" 2>/dev/null) && parsed=1
 
-    if [[ $forced == ALARM ]]; then
-        mode=ALARM
+    if (( parsed )); then
+        mode=TIMER
     else
-        if (( parsed )); then
-            mode=TIMER
-        else
-            mode=ALARM
-        fi
+        mode=ALARM
     fi
 
     if [[ $mode == TIMER ]]; then
@@ -155,13 +155,13 @@ schedule_timer() {
         (
             touch "$TIMER_LOG"
             sleep "$secs"
-            remove_log_line "$end TIMER $$ $msg"
+            remove_log_line "$end TIMER $$ $window $msg"
             local t=$(date +%s)
             echo "$t $CHECKMARK_EMOJI $msg" >> "$TIMER_LOG"
             sleep "$CLEANUP_AGE"
             remove_log_line "$t $CHECKMARK_EMOJI $msg"
         ) &
-        echo "$end TIMER $! $msg" >> "$TIMER_LOG"
+        echo "$end TIMER $! $window $msg" >> "$TIMER_LOG"
 
     else  # ALARM
         local epoch delay now
@@ -172,13 +172,13 @@ schedule_timer() {
         (
             touch "$TIMER_LOG"
             sleep "$delay"
-            remove_log_line "$epoch ALARM $$ $msg"
+            remove_log_line "$epoch ALARM $$ $window $msg"
             local t=$(date +%s)
             echo "$t $CHECKMARK_EMOJI $msg" >> "$TIMER_LOG"
             sleep "$CLEANUP_AGE"
             remove_log_line "$t $CHECKMARK_EMOJI $msg"
         ) &
-        echo "$epoch ALARM $! $msg" >> "$TIMER_LOG"
+        echo "$epoch ALARM $! $window $msg" >> "$TIMER_LOG"
     fi
 }
 
@@ -187,9 +187,14 @@ schedule_timer() {
 # --------------------------------------------------------------------
 list_timers() {
     touch "$TIMER_LOG"
-    local flag=${1:-} use_secs=0 vertical=0
-    [[ $flag == -s ]] && use_secs=1
-    [[ $flag == -1 ]] && vertical=1
+    local use_secs=0 vertical=0 show_all=0
+    for arg in "$@"; do
+        case $arg in
+            -s) use_secs=1 ;;
+            -1) vertical=1 ;;
+            --all) show_all=1 ;;
+        esac
+    done
 
     cleanup_timers
     [[ ! -s $TIMER_LOG ]] && { [[ $vertical -eq 0 ]] && echo ""; return; }
@@ -205,9 +210,19 @@ list_timers() {
         fi
 
         if [[ $kind == TIMER || $kind == ALARM ]]; then
+            local fields msg window=0
+            fields=$(awk '{print NF}' <<<"$line")
+            if (( fields >= 5 )); then
+                window=$4
+                msg=$(cut -d' ' -f5- <<<"$line")
+            else
+                msg=$(cut -d' ' -f4- <<<"$line")
+            fi
             local remain=$((stamp-now))
-            local msg=$(cut -d' ' -f4- <<<"$line")
             if (( remain>0 )); then
+                if (( show_all==0 && window>0 && remain>window )); then
+                    continue
+                fi
                 local disp icon
                 if (( use_secs )); then
                     disp=$(format_seconds "$remain")
@@ -241,12 +256,19 @@ list_timers() {
 # --------------------------------------------------------------------
 if [[ $# -eq 0 ]]; then
     list_timers
-elif [[ $1 == -s && $# -eq 1 ]]; then
-    list_timers -s
-elif [[ $1 == -1 && $# -eq 1 ]]; then
-    list_timers -1
 else
-    schedule_timer "$@"
+    only_flags=1
+    for arg in "$@"; do
+        case $arg in
+            -s|-1|--all) ;;
+            *) only_flags=0; break ;;
+        esac
+    done
+    if (( only_flags )); then
+        list_timers "$@"
+    else
+        schedule_timer "$@"
+    fi
 fi
 
 # Version output disabled to keep display clean
