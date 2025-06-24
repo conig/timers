@@ -136,15 +136,16 @@ format_remaining() {
 # 1h20m10s → seconds
 parse_duration() {
     local s=0 input=$1
-    while [[ $input =~ ([0-9]*\.?[0-9]+)([hms]) ]]; do
+    while [[ $input =~ ^[[:space:]]*([0-9]*\.?[0-9]+)([hms])(.*) ]]; do
         num=${BASH_REMATCH[1]} unit=${BASH_REMATCH[2]}
+        input=${BASH_REMATCH[3]}
         case $unit in
             h) s=$(awk -v s="$s" -v n="$num" 'BEGIN{print s+n*3600}') ;;
             m) s=$(awk -v s="$s" -v n="$num" 'BEGIN{print s+n*60}')  ;;
             s) s=$(awk -v s="$s" -v n="$num" 'BEGIN{print s+n}')     ;;
         esac
-        input=${input#${BASH_REMATCH[0]}}
     done
+    input=${input//[[:space:]]/}
     [[ -n $input ]] && { echo "Could not parse '$input'." >&2; return 1; }
     printf '%d' "${s%.*}"
 }
