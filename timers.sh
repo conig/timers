@@ -13,13 +13,6 @@ CHECKMARK_EMOJI="✔"
 CLEANUP_AGE=600        # seconds
 TIMERS_VERSION="v2025-05-19"
 
-# Remove leading/trailing whitespace
-trim() {
-    local var="$1"
-    var="${var#${var%%[![:space:]]*}}"
-    var="${var%${var##*[![:space:]]}}"
-    printf '%s' "$var"
-}
 
 # Display usage information
 print_help() {
@@ -59,8 +52,8 @@ SOUND_FILE=""
 # Load config if present
 if [[ -f $CONFIG_FILE ]]; then
     while IFS='=' read -r key val; do
-        key=$(trim "$key")
-        val=$(trim "$val")
+        key=${key//[[:space:]]/}
+        val=${val//[[:space:]]/}
         [[ $key = \#* || -z $key ]] && continue
         case $key in
             notify_on_create) NOTIFY_CREATE=$val ;;
