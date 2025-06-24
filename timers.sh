@@ -286,8 +286,10 @@ schedule_timer() {
         shift
     done
 
-    local secs parsed=0 mode
-    secs=$(parse_duration "$time_spec" 2>/dev/null) && parsed=1
+    local secs=0 parsed=0 mode
+    if secs=$(parse_duration "$time_spec" 2>/dev/null); then
+        parsed=1
+    fi
 
     if (( parsed )); then
         mode=TIMER
