@@ -245,18 +245,21 @@ cancel_timer() {
 # --------------------------------------------------------------------
 schedule_timer() {
     touch "$TIMER_LOG"
-    local mode msg="" time_spec="" window=0
+    local msg="" window=0
+    local -a time_parts=()
 
-    while getopts ":m:cn:p" opt; do
-        case $opt in
-            m) msg=$OPTARG ;;
-            c) cancel_timer; return ;;
-            n) window=$(parse_duration "$OPTARG" 2>/dev/null) || { echo "Bad window."; return 1; } ;;
-            p) PLAY_SOUND=1 ;;
-            *) echo "Usage: timers [-m msg] [msg] time [-c] [-n window] [-p]" ; return 1 ;;
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -m) shift; msg=$1 ;;
+            -n) shift; window=$(parse_duration "$1" 2>/dev/null) || { echo "Bad window."; return 1; } ;;
+            -p) PLAY_SOUND=1 ;;
+            -c) cancel_timer; return ;;
+            --) shift; break ;;
+            -* ) echo "Usage: timers [-m msg] [msg] time [-c] [-n window] [-p]"; return 1 ;;
+            *)  break ;;
         esac
+        shift
     done
-    shift $((OPTIND-1))
 
     if [[ -z $msg && $# -ge 2 ]]; then
         msg=$1
@@ -265,29 +268,25 @@ schedule_timer() {
 
     while [[ $# -gt 0 ]]; do
         case $1 in
-            -c|-n|-p)
-                break ;;
-            *)
-                time_spec+="${time_spec:+ }$1"
-                shift
-                ;;
+            -n|-p|-c) break ;;
+            *) time_parts+=("$1"); shift ;;
         esac
     done
-    [[ -z $msg || -z $time_spec ]] && { echo "Msg and time required."; return 1; }
+    [[ -z $msg || ${#time_parts[@]} -eq 0 ]] && { echo "Msg and time required."; return 1; }
 
-    OPTIND=1
-    while getopts ":cn:p" opt; do
-        case $opt in
-            c) cancel_timer; return ;;
-            n) window=$(parse_duration "$OPTARG" 2>/dev/null) || { echo "Bad window."; return 1; } ;;
-            p) PLAY_SOUND=1 ;;
-            *) echo "Usage: timers [-m msg] [msg] time [-c] [-n window] [-p]" ; return 1 ;;
+    local time_spec="${time_parts[*]}"
+
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -n) shift; window=$(parse_duration "$1" 2>/dev/null) || { echo "Bad window."; return 1; } ;;
+            -p) PLAY_SOUND=1 ;;
+            -c) cancel_timer; return ;;
+            *) echo "Usage: timers [-m msg] [msg] time [-c] [-n window] [-p]"; return 1 ;;
         esac
+        shift
     done
-    shift $((OPTIND-1))
-    [[ $# -gt 0 ]] && { echo "Usage: timers [-m msg] [msg] time [-c] [-n window] [-p]"; return 1; }
 
-    local secs parsed=0
+    local secs parsed=0 mode
     secs=$(parse_duration "$time_spec" 2>/dev/null) && parsed=1
 
     if (( parsed )); then
