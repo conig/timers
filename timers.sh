@@ -246,6 +246,7 @@ cancel_timer() {
 schedule_timer() {
     touch "$TIMER_LOG"
     local mode msg="" time_spec="" window=0
+
     while getopts ":m:cn:p" opt; do
         case $opt in
             m) msg=$OPTARG ;;
@@ -262,8 +263,29 @@ schedule_timer() {
         shift
     fi
 
-    time_spec="$*"
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -c|-n|-p)
+                break ;;
+            *)
+                time_spec+="${time_spec:+ }$1"
+                shift
+                ;;
+        esac
+    done
     [[ -z $msg || -z $time_spec ]] && { echo "Msg and time required."; return 1; }
+
+    OPTIND=1
+    while getopts ":cn:p" opt; do
+        case $opt in
+            c) cancel_timer; return ;;
+            n) window=$(parse_duration "$OPTARG" 2>/dev/null) || { echo "Bad window."; return 1; } ;;
+            p) PLAY_SOUND=1 ;;
+            *) echo "Usage: timers [-m msg] [msg] time [-c] [-n window] [-p]" ; return 1 ;;
+        esac
+    done
+    shift $((OPTIND-1))
+    [[ $# -gt 0 ]] && { echo "Usage: timers [-m msg] [msg] time [-c] [-n window] [-p]"; return 1; }
 
     local secs parsed=0
     secs=$(parse_duration "$time_spec" 2>/dev/null) && parsed=1

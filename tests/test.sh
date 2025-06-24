@@ -239,15 +239,14 @@ test_cleanup_on_start() {
 
 run_test cleanup_on_start test_cleanup_on_start
 
-test_bad_date_with_window() {
+test_window_option_after_time() {
     tmp=$(mktemp -d)
-    if XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" "$script" test 9:00 -n 30m >"$tmp/out" 2>&1; then
-        return 1
-    fi
-    grep -q "Bad date." "$tmp/out"
+    target=$(date -d '1 minute' '+%H:%M')
+    XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" "$script" test "$target" -n 30m
+    grep -q "ALARM" "$tmp/.cache/timers"
 }
 
-run_test bad_date_with_window test_bad_date_with_window
+run_test window_option_after_time test_window_option_after_time
 
 run_test cleanup_age_config 
 
