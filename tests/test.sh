@@ -239,6 +239,16 @@ test_cleanup_on_start() {
 
 run_test cleanup_on_start test_cleanup_on_start
 
+test_bad_date_with_window() {
+    tmp=$(mktemp -d)
+    if XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" "$script" test 9:00 -n 30m >"$tmp/out" 2>&1; then
+        return 1
+    fi
+    grep -q "Bad date." "$tmp/out"
+}
+
+run_test bad_date_with_window test_bad_date_with_window
+
 run_test cleanup_age_config 
 
 echo "All tests passed."
