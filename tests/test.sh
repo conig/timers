@@ -219,4 +219,13 @@ test_help_flag() {
 
 run_test help_flag test_help_flag
 
+test_json_output() {
+    tmp=$(mktemp -d)
+    XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" "$script" foo 5s
+    out=$(XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" "$script" --json)
+    echo "$out" | jq -e '.[0] | .name=="foo" and .label=="TIMER" and has("id") and has("emoji") and has("expiration") and has("sound")' >/dev/null
+}
+
+run_test json_output test_json_output
+
 echo "All tests passed."

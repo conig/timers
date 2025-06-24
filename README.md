@@ -15,7 +15,7 @@
 
 ## Usage
 ```
-Usage: timers [-m "message"] [message] [time] [-c to cancel timers] [-s to list timers] [-n duration] [-p] [-a|--all] [--config] [-h]
+Usage: timers [-m "message"] [message] [time] [-c to cancel timers] [-s to list timers] [-n duration] [-p] [-a|--all] [--json] [--config] [-h]
 ```
 
 ### Arguments
@@ -28,6 +28,7 @@ Usage: timers [-m "message"] [message] [time] [-c to cancel timers] [-s to list 
 | `-n <duration>` | Only show the timer when less than this duration remains. |
 | `-p` | Play a sound when the timer finishes. |
 | `-a`, `--all` | List all timers regardless of their show window. |
+| `--json` | Output timers in JSON format. |
 | `--config` | Open the configuration file in the default editor. |
 | `-h`, `--help` | Show help information. |
 
