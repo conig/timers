@@ -10,7 +10,7 @@ TIMER_LOG="${XDG_CACHE_HOME:-$HOME/.cache}/timers"
 STOPWATCH_EMOJI="⏱️"
 CALENDAR_EMOJI="📅"
 CHECKMARK_EMOJI="✔"
-CLEANUP_AGE=300        # seconds
+CLEANUP_AGE=600        # seconds
 TIMERS_VERSION="v2025-05-19"
 
 # Display usage information
@@ -56,6 +56,7 @@ if [[ -f $CONFIG_FILE ]]; then
             notify_on_expire) NOTIFY_EXPIRE=$val ;;
             sound_on_expire)  PLAY_SOUND=$val ;;
             sound_file)       SOUND_FILE=$val ;;
+            cleanup_age)      CLEANUP_AGE=$val ;;
         esac
     done < "$CONFIG_FILE"
 fi
@@ -67,6 +68,7 @@ open_config() {
         cat > "$CONFIG_FILE" <<'EOF'
 # notify_on_create=0
 # notify_on_expire=1
+# cleanup_age=600
 # sound_on_expire=0
 # sound_file=/path/to/sound.oga
 EOF
@@ -160,7 +162,7 @@ cleanup_timers() {
         ($2=="TIMER"||$2=="ALARM"){ if ($1     >  now) print; next }
         { print }
     ' "$TIMER_LOG" > "$tmpfile"
-    [[ -s $tmpfile ]] && mv "$tmpfile" "$TIMER_LOG" || rm -f "$tmpfile"
+    mv "$tmpfile" "$TIMER_LOG"
 }
 
 # Safely remove an exact log line regardless of special characters
@@ -411,6 +413,7 @@ list_timers() {
 # --------------------------------------------------------------------
 # Entry
 # --------------------------------------------------------------------
+cleanup_timers
 for arg in "$@"; do
     case $arg in
         -h|--help)
