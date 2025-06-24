@@ -17,7 +17,7 @@ TIMERS_VERSION="v2025-05-19"
 print_help() {
     cat <<'EOF'
 Usage: timers [-m "msg"] [msg] time [-c] [-n window]
-       timers [-s] [-1] [-a|--all]
+       timers [-s] [-1] [-a|--all] [--json]
        timers [--config]
 
 Options:
@@ -28,6 +28,7 @@ Options:
   -s            Show remaining time in HH:MM:SS
   -1            Output one item per line
   -a, --all     Show all timers regardless of window
+  --json        Output timers as JSON
   --config      Edit the configuration file
   -h, --help    Show this help message
 EOF
@@ -172,26 +173,26 @@ remove_log_line() {
 }
 
 # Schedule a timer or alarm that triggers at an absolute epoch time.
-# Arguments: stamp kind window message
+# Arguments: stamp kind window msg sound
 schedule_entry() {
-    local stamp=$1 kind=$2 window=$3 msg=$4
+    local stamp=$1 kind=$2 window=$3 msg=$4 sound=$5
     local delay=$((stamp-$(date +%s)))
     (
         touch "$TIMER_LOG"
         sleep "$delay"
-        remove_log_line "$stamp $kind $$ $window $msg"
+        remove_log_line "$stamp $kind $$ $window $sound $msg"
         local t=$(date +%s)
         echo "$t $CHECKMARK_EMOJI $msg" >> "$TIMER_LOG"
         if (( NOTIFY_EXPIRE )); then
             notify "$msg" "$kind finished"
         fi
-        if (( PLAY_SOUND )); then
+        if (( sound )); then
             play_sound "$SOUND_FILE"
         fi
         sleep "$CLEANUP_AGE"
         remove_log_line "$t $CHECKMARK_EMOJI $msg"
     ) &
-    echo "$stamp $kind $! $window $msg" >> "$TIMER_LOG"
+    echo "$stamp $kind $! $window $sound $msg" >> "$TIMER_LOG"
     if (( NOTIFY_CREATE )); then
         notify "$msg" "$kind set"
     fi
@@ -211,7 +212,11 @@ cancel_timer() {
     while IFS= read -r line; do
         [[ $line =~ (TIMER|ALARM) ]] || continue
         map[$i]="$line"
-        if (( $(awk '{print NF}' <<<"$line") >= 5 )); then
+        local fields
+        fields=$(awk '{print NF}' <<<"$line")
+        if (( fields >= 6 )); then
+            echo "$i) $(cut -d' ' -f6- <<<"$line")"
+        elif (( fields >=5 )); then
             echo "$i) $(cut -d' ' -f5- <<<"$line")"
         else
             echo "$i) $(cut -d' ' -f4- <<<"$line")"
@@ -266,7 +271,7 @@ schedule_timer() {
         (( parsed )) || { echo "Could not parse '$time_spec'."; return 1; }
         (( secs>0 )) || { echo "Duration must be >0."; return 1; }
         local end=$(( $(date +%s)+secs ))
-        schedule_entry "$end" "TIMER" "$window" "$msg"
+        schedule_entry "$end" "TIMER" "$window" "$msg" "$PLAY_SOUND"
 
     else  # ALARM
         local epoch delay
@@ -278,41 +283,72 @@ schedule_timer() {
             delay=$((epoch-$(date +%s)))
         fi
         (( delay>0 )) || { echo "Time is past."; return 1; }
-        schedule_entry "$epoch" "ALARM" "$window" "$msg"
+        schedule_entry "$epoch" "ALARM" "$window" "$msg" "$PLAY_SOUND"
     fi
 }
 
 # --------------------------------------------------------------------
 # Display
 # --------------------------------------------------------------------
+json_escape() {
+    local s=${1//\\/\\\\}
+    s=${s//"/\\"}
+    s=${s//$'\n'/\\n}
+    printf '%s' "$s"
+}
+
 list_timers() {
     touch "$TIMER_LOG"
-    local use_secs=0 vertical=0 show_all=0
+    local use_secs=0 vertical=0 show_all=0 json=0
     for arg in "$@"; do
         case $arg in
             -s) use_secs=1 ;;
             -1) vertical=1 ;;
             -a|--all) show_all=1 ;;
+            --json) json=1 ;;
         esac
     done
 
     cleanup_timers
-    [[ ! -s $TIMER_LOG ]] && { [[ $vertical -eq 0 ]] && echo ""; return; }
+    if [[ ! -s $TIMER_LOG ]]; then
+        if (( json )); then
+            echo "[]"
+        elif (( vertical==0 )); then
+            echo ""
+        fi
+        return
+    fi
 
     local now=$(date +%s) out=()
+    if (( json )); then
+        printf '['
+    fi
+    local first=1
     while IFS= read -r line; do
         set -- $line            # splits into $1,$2,...
         local stamp=$1  kind=$2
 
         if [[ $kind == $CHECKMARK_EMOJI ]]; then
-            out+=("$(cut -d' ' -f3- <<<"$line") $CHECKMARK_EMOJI")
+            local msg=$(cut -d' ' -f3- <<<"$line")
+            if (( json )); then
+                (( first==0 )) && printf ','
+                first=0
+                printf '\n  {"id":"done-%s","name":"%s","label":"done","emoji":"%s","expiration":%s,"sound":0}' \
+                    "$stamp" "$(json_escape "$msg")" "$CHECKMARK_EMOJI" "$stamp"
+            else
+                out+=("$msg $CHECKMARK_EMOJI")
+            fi
             continue
         fi
 
         if [[ $kind == TIMER || $kind == ALARM ]]; then
-            local fields msg window=0
+            local fields msg window=0 sound=0 pid=$3
             fields=$(awk '{print NF}' <<<"$line")
-            if (( fields >= 5 )); then
+            if (( fields >= 6 )); then
+                window=$4
+                sound=$5
+                msg=$(cut -d' ' -f6- <<<"$line")
+            elif (( fields == 5 )); then
                 window=$4
                 msg=$(cut -d' ' -f5- <<<"$line")
             else
@@ -331,12 +367,33 @@ list_timers() {
                     disp=$(format_remaining "$remain")
                     icon=$([[ $remain -ge 86400 ]] && echo "$CALENDAR_EMOJI" || echo "$STOPWATCH_EMOJI")
                 fi
-                out+=("$icon $msg: $disp")
+                if (( json )); then
+                    (( first==0 )) && printf ','
+                    first=0
+                    printf '\n  {"id":"%s-%s","name":"%s","label":"%s","emoji":"%s","expiration":%s,"sound":%s}' \
+                        "$stamp" "$pid" "$(json_escape "$msg")" "$kind" "$icon" "$stamp" "$sound"
+                else
+                    out+=("$icon $msg: $disp")
+                fi
             else
-                out+=("$msg $CHECKMARK_EMOJI")
+                if (( json )); then
+                    (( first==0 )) && printf ','
+                    first=0
+                    printf '\n  {"id":"%s-%s","name":"%s","label":"%s","emoji":"%s","expiration":%s,"sound":%s}' \
+                        "$stamp" "$pid" "$(json_escape "$msg")" "$kind" "$CHECKMARK_EMOJI" "$stamp" "$sound"
+                else
+                    out+=("$msg $CHECKMARK_EMOJI")
+                fi
             fi
         fi
     done < "$TIMER_LOG"
+
+    if (( json )); then
+        echo
+        printf ']'
+        echo
+        return
+    fi
 
     if (( vertical )); then
         printf '%s\n' "${out[@]}"
@@ -371,7 +428,7 @@ else
     only_flags=1
     for arg in "$@"; do
         case $arg in
-            -s|-1|-a|--all) ;;
+            -s|-1|-a|--all|--json) ;;
             *) only_flags=0; break ;;
         esac
     done
