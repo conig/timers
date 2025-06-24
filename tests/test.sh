@@ -239,6 +239,15 @@ test_cleanup_on_start() {
 
 run_test cleanup_on_start test_cleanup_on_start
 
+test_window_option_after_time() {
+    tmp=$(mktemp -d)
+    target=$(date -d '1 minute' '+%H:%M')
+    XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" "$script" test "$target" -n 30m
+    grep -q "ALARM" "$tmp/.cache/timers"
+}
+
+run_test window_option_after_time test_window_option_after_time
+
 run_test cleanup_age_config 
 
 echo "All tests passed."
