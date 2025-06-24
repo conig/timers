@@ -51,6 +51,7 @@ SOUND_FILE=""
 # Load config if present
 if [[ -f $CONFIG_FILE ]]; then
     while IFS='=' read -r key val; do
+        [[ $key =~ ^# || -z $key ]] && continue
         case $key in
             notify_on_create) NOTIFY_CREATE=$val ;;
             notify_on_expire) NOTIFY_EXPIRE=$val ;;
