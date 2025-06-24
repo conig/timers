@@ -228,4 +228,17 @@ test_json_output() {
 
 run_test json_output test_json_output
 
+test_cleanup_on_start() {
+    tmp=$(mktemp -d)
+    mkdir -p "$tmp/.cache"
+    old=$(( $(date +%s) - 86400 ))
+    printf "%s ✔ old\n" "$old" > "$tmp/.cache/timers"
+    XDG_CACHE_HOME="$tmp/.cache" HOME="$tmp" "$script" >/dev/null
+    ! grep -q old "$tmp/.cache/timers"
+}
+
+run_test cleanup_on_start test_cleanup_on_start
+
+run_test cleanup_age_config 
+
 echo "All tests passed."

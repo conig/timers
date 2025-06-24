@@ -110,15 +110,17 @@ otherwise. The file supports these optional settings:
 ```
 notify_on_create=0
 notify_on_expire=1
+# cleanup_age=600
 # sound_on_expire=0
 # sound_file=/path/to/sound.oga
 ```
 
 Set each value to `1` to enable or `0` to disable the corresponding
-alert. By default creation alerts are disabled and expiration alerts
-are enabled. When `sound_on_expire` is set, a sound is played on
-completion using `sound_file` if provided (otherwise the terminal bell
-is used).
+alert. `cleanup_age` controls how long completed timers remain in the
+log before being purged (default `600`). By default creation alerts are
+disabled and expiration alerts are enabled. When `sound_on_expire` is
+set, a sound is played on completion using `sound_file` if provided
+(otherwise the terminal bell is used).
 Use `timers --config` to create or edit this file in your preferred editor.
 
 ## Error Handling
